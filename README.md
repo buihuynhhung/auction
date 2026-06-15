@@ -42,11 +42,3 @@ npm.cmd run db:seed
 ```powershell
 npm.cmd run dev
 ```
-
-Mac dinh app chay tai `http://localhost:3001`.
-
-## Demo accounts
-
-- Admin: `admin@company.local`
-- Employee: `alice@company.local`, `bob@company.local`, `carol@company.local`
-- Password chung: `Password123!`
