@@ -2,6 +2,7 @@ import Link from "next/link";
 import { LogIn } from "lucide-react";
 import { AlertBox, Button } from "@/components/ui";
 import { AuthField, AuthHeading, AuthLayout } from "@/components/auth-layout";
+import { safeRedirectPath } from "@/lib/redirects";
 
 type LoginPageProps = {
   searchParams?: Promise<{
@@ -15,18 +16,10 @@ const errorMessages: Record<string, string> = {
   forbidden: "Tài khoản này không có quyền vào khu vực quản trị.",
 };
 
-function safeNextPath(value?: string) {
-  if (!value || !value.startsWith("/")) {
-    return "/";
-  }
-
-  return value;
-}
-
 export default async function LoginPage({ searchParams }: LoginPageProps) {
   const params = (await searchParams) ?? {};
   const error = params.error ? errorMessages[params.error] : null;
-  const next = safeNextPath(params.next);
+  const next = safeRedirectPath(params.next);
 
   return (
     <AuthLayout

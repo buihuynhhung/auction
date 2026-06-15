@@ -1,14 +1,8 @@
 import bcrypt from "bcryptjs";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { safeRedirectPath } from "@/lib/redirects";
 import { SESSION_COOKIE_NAME, createSessionToken } from "@/lib/session";
-
-function safeRedirectPath(value: string | null) {
-  if (!value || !value.startsWith("/")) {
-    return "/";
-  }
-  return value;
-}
 
 export async function POST(request: NextRequest) {
   const formData = await request.formData();

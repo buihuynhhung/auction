@@ -1,5 +1,6 @@
 import { cookies } from "next/headers";
-import { SESSION_COOKIE_NAME, verifySessionToken } from "@/lib/session";
+import { getActiveSessionFromToken } from "@/lib/session-revalidation";
+import { SESSION_COOKIE_NAME } from "@/lib/session";
 
 export async function getCurrentSession() {
   const cookieStore = await cookies();
@@ -9,5 +10,5 @@ export async function getCurrentSession() {
     return null;
   }
 
-  return verifySessionToken(token);
+  return getActiveSessionFromToken(token);
 }

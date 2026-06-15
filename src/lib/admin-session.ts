@@ -1,10 +1,7 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
-import {
-  SESSION_COOKIE_NAME,
-  SessionUser,
-  verifySessionToken,
-} from "@/lib/session";
+import { getActiveSessionFromToken } from "@/lib/session-revalidation";
+import { SESSION_COOKIE_NAME, SessionUser } from "@/lib/session";
 
 export async function getSessionFromRequest(
   request: NextRequest,
@@ -14,7 +11,7 @@ export async function getSessionFromRequest(
     return null;
   }
 
-  return verifySessionToken(token);
+  return getActiveSessionFromToken(token);
 }
 
 export async function requireAdminSession(request: NextRequest) {
