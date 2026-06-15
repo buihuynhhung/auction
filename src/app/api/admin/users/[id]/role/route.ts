@@ -1,5 +1,5 @@
+import { Prisma, UserRole } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
-import { Prisma } from "@prisma/client";
 import { requireAdminSession } from "@/lib/admin-session";
 import { prisma } from "@/lib/prisma";
 
@@ -14,32 +14,20 @@ export async function POST(
 
   const { id } = await context.params;
   const formData = await request.formData();
-  const action = String(formData.get("action") ?? "");
+  const role = String(formData.get("role") ?? "");
 
-  if (action !== "activate" && action !== "deactivate") {
+  if (role !== UserRole.ADMIN && role !== UserRole.EMPLOYEE) {
     return NextResponse.redirect(new URL("/admin/users?error=invalid", request.url));
   }
 
+  if (id === session.id && role === UserRole.EMPLOYEE) {
+    return NextResponse.redirect(new URL("/admin/users?error=self-action", request.url));
+  }
+
   try {
-    const user = await prisma.user.findUnique({
-      where: { id },
-      select: { isActive: true },
-    });
-
-    if (!user) {
-      return NextResponse.redirect(new URL("/admin/users?error=not-found", request.url));
-    }
-
-    if (!user.isActive && action === "activate") {
-      return NextResponse.redirect(new URL("/admin/users?error=invalid", request.url));
-    }
-
     await prisma.user.update({
       where: { id },
-      data: {
-        sellerPlanActive: action === "activate",
-        sellerPlanExpiresAt: null,
-      },
+      data: { role },
     });
   } catch (error) {
     if (
@@ -52,5 +40,5 @@ export async function POST(
     throw error;
   }
 
-  return NextResponse.redirect(new URL("/admin/users?saved=1", request.url));
+  return NextResponse.redirect(new URL("/admin/users?roleUpdated=1", request.url));
 }
