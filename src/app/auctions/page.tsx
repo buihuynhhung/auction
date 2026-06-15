@@ -1,4 +1,19 @@
 import Link from "next/link";
+import { AuctionStatus } from "@prisma/client";
+import { AppShell } from "@/components/app-shell";
+import { ProductImage } from "@/components/product-image";
+import {
+  AuctionMeta,
+  AuctionParticipantLine,
+  Button,
+  Card,
+  categoryLabel,
+  conditionLabel,
+  CtaArrow,
+  EmptyState,
+  PageHeader,
+  StatusBadge,
+} from "@/components/ui";
 import { prisma } from "@/lib/prisma";
 import {
   formatCurrency,
@@ -6,12 +21,35 @@ import {
   getAuctionTiming,
 } from "@/lib/auction-format";
 import { getCurrentSession } from "@/lib/current-session";
+import { getProductDetailText } from "@/lib/product-details";
 
-export default async function AuctionsPage() {
+type AuctionsPageProps = {
+  searchParams?: Promise<{ status?: string }>;
+};
+
+const filters: Array<{
+  label: string;
+  value: string;
+  statuses?: AuctionStatus[];
+}> = [
+  { label: "Tất cả", value: "all" },
+  { label: "Đang mở", value: "active", statuses: ["ACTIVE"] },
+  { label: "Sắp diễn ra", value: "scheduled", statuses: ["SCHEDULED"] },
+  { label: "Đã kết thúc", value: "closed", statuses: ["CLOSED"] },
+];
+
+export default async function AuctionsPage({ searchParams }: AuctionsPageProps) {
+  const params = (await searchParams) ?? {};
+  const activeFilter =
+    filters.find((filter) => filter.value === params.status) ?? filters[0];
+
   const [auctions, session] = await Promise.all([
     prisma.auction.findMany({
       where: {
-        status: { in: ["ACTIVE", "SCHEDULED", "CLOSED"] },
+        status: activeFilter.statuses
+          ? { in: activeFilter.statuses }
+          : { in: ["ACTIVE", "SCHEDULED", "CLOSED"] },
+        item: { status: { not: "ARCHIVED" } },
       },
       orderBy: [{ status: "asc" }, { endAt: "asc" }],
       include: {
@@ -23,7 +61,9 @@ export default async function AuctionsPage() {
         bids: {
           orderBy: [{ amount: "desc" }, { createdAt: "asc" }],
           take: 1,
+          include: { user: { select: { name: true } } },
         },
+        winner: { select: { name: true } },
         _count: {
           select: { bids: true },
         },
@@ -33,39 +73,34 @@ export default async function AuctionsPage() {
   ]);
 
   return (
-    <main className="min-h-screen bg-slate-50">
-      <div className="mx-auto w-full max-w-6xl px-6 py-10">
-        <div className="border-b border-slate-200 pb-6">
-          <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-            <div>
-              <p className="text-sm font-medium uppercase tracking-wide text-slate-500">
-                Nhan vien
-              </p>
-              {session ? (
-                <p className="mt-1 text-sm text-slate-500">
-                  Dang dang nhap: {session.name} - {session.role}
-                </p>
-              ) : null}
-            </div>
-            <form action="/api/auth/logout" method="post">
-              <button
-                type="submit"
-                className="rounded-md border border-slate-300 px-3 py-1.5 text-sm text-slate-700"
-              >
-                Dang xuat
-              </button>
-            </form>
-          </div>
-          <h1 className="mt-2 text-3xl font-semibold text-slate-950">
-            Danh sach dau gia
-          </h1>
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
-            Xem thiet bi dang dau gia, gia hien tai, thoi gian con lai va trang
-            thai phien.
-          </p>
-        </div>
+    <AppShell session={session} section="auctions">
+      <PageHeader
+        eyebrow="Đấu giá"
+        title="Danh sách đấu giá"
+        description="Xem thiết bị đang đấu giá, giá hiện tại, thời gian còn lại và trạng thái phiên."
+      />
 
-        <section className="mt-6 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+      <section className="flex flex-wrap gap-2">
+        {filters.map((filter) => {
+          const selected = filter.value === activeFilter.value;
+          const href =
+            filter.value === "all" ? "/auctions" : `/auctions?status=${filter.value}`;
+
+          return (
+            <Button
+              key={filter.value}
+              href={href}
+              variant={selected ? "primary" : "secondary"}
+              className="min-w-24"
+            >
+              {filter.label}
+            </Button>
+          );
+        })}
+      </section>
+
+      {auctions.length ? (
+        <section className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {auctions.map((auction) => {
             const highestBid = auction.bids[0];
             const currentPrice = highestBid?.amount ?? auction.startingPrice;
@@ -76,75 +111,71 @@ export default async function AuctionsPage() {
             const image = auction.item.images[0];
 
             return (
-              <Link
-                key={auction.id}
-                href={`/auctions/${auction.id}`}
-                className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm transition hover:border-slate-400"
-              >
-                <div className="aspect-[4/3] bg-slate-100">
-                  {image ? (
-                    <div
-                      aria-label={image.altText ?? auction.item.name}
-                      className="h-full w-full bg-cover bg-center"
-                      role="img"
-                      style={{ backgroundImage: `url(${image.url})` }}
-                    />
-                  ) : (
-                    <div className="flex h-full items-center justify-center text-sm text-slate-500">
-                      Chua co anh
+              <Link key={auction.id} href={`/auctions/${auction.id}`}>
+                <Card className="h-full overflow-hidden transition hover:-translate-y-0.5 hover:border-primary/50">
+                  <ProductImage src={image?.url} alt={image?.altText ?? auction.item.name} />
+                  <div className="p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <h2 className="font-bold text-foreground">
+                          {auction.item.name}
+                        </h2>
+                        <p className="mt-1 text-sm text-muted-foreground">
+                          {categoryLabel(auction.item.category)} -{" "}
+                          {conditionLabel(auction.item.condition)}
+                        </p>
+                      </div>
+                      <StatusBadge status={auction.status} />
                     </div>
-                  )}
-                </div>
-                <div className="p-4">
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <h2 className="text-base font-semibold text-slate-950">
-                        {auction.item.name}
-                      </h2>
-                      <p className="mt-1 text-sm text-slate-600">
-                        {auction.item.category} - {auction.status}
+
+                    {getProductDetailText(auction.item) ? (
+                      <p className="mt-3 line-clamp-2 text-sm text-muted-foreground">
+                        {getProductDetailText(auction.item)}
+                      </p>
+                    ) : null}
+
+                    <div className="mt-4">
+                      <AuctionMeta
+                        currentPrice={formatCurrency(currentPrice)}
+                        bidCount={auction._count.bids}
+                        remaining={timing.remaining}
+                      />
+                      <AuctionParticipantLine
+                        status={auction.status}
+                        highestBidUserName={highestBid?.user.name}
+                        winnerName={auction.winner?.name}
+                      />
+                    </div>
+
+                    <div className="mt-4 rounded-md border border-border bg-surface-muted p-3 text-sm">
+                      <div className="flex justify-between gap-3">
+                        <span className="text-muted-foreground">
+                          Đặt tối thiểu
+                        </span>
+                        <strong className="text-foreground">
+                          {formatCurrency(minimumBid)}
+                        </strong>
+                      </div>
+                      <p className="mt-2 text-xs text-muted-foreground">
+                        Kết thúc: {formatDateTime(auction.endAt)}
                       </p>
                     </div>
-                    <span className="rounded-md bg-slate-100 px-2 py-1 text-xs font-medium text-slate-700">
-                      {auction._count.bids} bid
-                    </span>
-                  </div>
 
-                  <dl className="mt-4 space-y-2 text-sm">
-                    <div className="flex justify-between gap-3">
-                      <dt className="text-slate-500">Gia hien tai</dt>
-                      <dd className="font-semibold text-slate-950">
-                        {formatCurrency(currentPrice)}
-                      </dd>
-                    </div>
-                    <div className="flex justify-between gap-3">
-                      <dt className="text-slate-500">Dat toi thieu</dt>
-                      <dd className="font-medium text-slate-800">
-                        {formatCurrency(minimumBid)}
-                      </dd>
-                    </div>
-                    <div className="flex justify-between gap-3">
-                      <dt className="text-slate-500">Con lai</dt>
-                      <dd className="font-medium text-slate-800">
-                        {timing.remaining}
-                      </dd>
-                    </div>
-                  </dl>
-                  <p className="mt-4 text-xs text-slate-500">
-                    Ket thuc: {formatDateTime(auction.endAt)}
-                  </p>
-                </div>
+                    <p className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-primary">
+                      Xem chi tiết <CtaArrow />
+                    </p>
+                  </div>
+                </Card>
               </Link>
             );
           })}
         </section>
-
-        {auctions.length === 0 ? (
-          <div className="mt-6 rounded-lg border border-slate-200 bg-white p-6 text-sm text-slate-600">
-            Chua co phien dau gia nao de hien thi.
-          </div>
-        ) : null}
-      </div>
-    </main>
+      ) : (
+        <EmptyState
+          title="Chưa có phiên phù hợp"
+          description="Thử đổi bộ lọc hoặc quay lại sau khi quản trị viên tạo thêm phiên đấu giá."
+        />
+      )}
+    </AppShell>
   );
 }

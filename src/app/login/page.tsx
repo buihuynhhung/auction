@@ -1,3 +1,8 @@
+import Link from "next/link";
+import { LogIn } from "lucide-react";
+import { AlertBox, Button } from "@/components/ui";
+import { AuthField, AuthHeading, AuthLayout } from "@/components/auth-layout";
+
 type LoginPageProps = {
   searchParams?: Promise<{
     error?: string;
@@ -6,8 +11,8 @@ type LoginPageProps = {
 };
 
 const errorMessages: Record<string, string> = {
-  invalid: "Email hoac mat khau khong dung.",
-  forbidden: "Tai khoan nay khong co quyen vao khu vuc quan tri.",
+  invalid: "Email hoặc mật khẩu không đúng.",
+  forbidden: "Tài khoản này không có quyền vào khu vực quản trị.",
 };
 
 function safeNextPath(value?: string) {
@@ -20,60 +25,59 @@ function safeNextPath(value?: string) {
 
 export default async function LoginPage({ searchParams }: LoginPageProps) {
   const params = (await searchParams) ?? {};
-  const error = params?.error ? errorMessages[params.error] : null;
-  const next = safeNextPath(params?.next);
+  const error = params.error ? errorMessages[params.error] : null;
+  const next = safeNextPath(params.next);
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-slate-50 px-6">
-      <div className="w-full max-w-md rounded-lg border border-slate-200 bg-white p-8 shadow-sm">
-        <div className="mb-6">
-          <p className="text-sm font-medium uppercase tracking-wide text-slate-500">
-            Dau gia noi bo
-          </p>
-          <h1 className="mt-2 text-2xl font-semibold text-slate-950">Dang nhap</h1>
-          <p className="mt-2 text-sm leading-6 text-slate-600">
-            Dung tai khoan cong ty de truy cap he thong.
-          </p>
+    <AuthLayout
+      eyebrow="Đăng nhập"
+      title="Trở lại phiên đấu giá của bạn"
+      description="Đăng nhập để đặt giá, theo dõi lịch sử tham gia và quản lý sản phẩm nếu tài khoản đã được quản trị viên cấp quyền đăng bán."
+    >
+      <AuthHeading
+        label="Tài khoản"
+        title="Đăng nhập"
+        description="Dùng email và mật khẩu đã đăng ký để truy cập tài khoản."
+      />
+
+      {error ? (
+        <div className="mb-4">
+          <AlertBox tone="danger">{error}</AlertBox>
         </div>
+      ) : null}
 
-        {error ? (
-          <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-            {error}
-          </div>
-        ) : null}
+      <form action="/api/auth/login" method="post" className="space-y-4">
+        <input type="hidden" name="next" value={next} />
+        <AuthField
+          label="Email"
+          name="email"
+          type="email"
+          placeholder="you@example.com"
+          autoComplete="email"
+        />
+        <AuthField
+          label="Mật khẩu"
+          name="password"
+          type="password"
+          placeholder="Nhập mật khẩu"
+          helper="Mật khẩu phân biệt chữ hoa, chữ thường."
+          autoComplete="current-password"
+        />
+        <Button type="submit" className="w-full">
+          <LogIn className="h-4 w-4" />
+          Đăng nhập
+        </Button>
+      </form>
 
-        <form action="/api/auth/login" method="post" className="space-y-4">
-          <input type="hidden" name="next" value={next} />
-          <label className="block">
-            <span className="mb-1 block text-sm font-medium text-slate-700">
-              Email
-            </span>
-            <input
-              type="email"
-              name="email"
-              required
-              className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-slate-500"
-            />
-          </label>
-          <label className="block">
-            <span className="mb-1 block text-sm font-medium text-slate-700">
-              Mat khau
-            </span>
-            <input
-              type="password"
-              name="password"
-              required
-              className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-slate-500"
-            />
-          </label>
-          <button
-            type="submit"
-            className="w-full rounded-md bg-slate-950 px-4 py-2 text-sm font-medium text-white"
-          >
-            Dang nhap
-          </button>
-        </form>
+      <div className="mt-5 rounded-md border border-border bg-surface-muted px-4 py-3 text-center text-sm text-muted-foreground">
+        Chưa có tài khoản?{" "}
+        <Link
+          href={`/register?next=${encodeURIComponent(next)}`}
+          className="font-semibold text-primary"
+        >
+          Đăng ký ngay
+        </Link>
       </div>
-    </main>
+    </AuthLayout>
   );
 }

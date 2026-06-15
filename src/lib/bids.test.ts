@@ -208,22 +208,22 @@ test("rejects bidding after auction end time", async () => {
   );
 });
 
-test("rejects non-employee users", async () => {
+test("allows any signed-in role to place bids", async () => {
   const repository = new FakeBidRepository(auction());
 
-  await expectBidError(
-    placeBid(
-      {
-        auctionId: "auction-1",
-        userId: "admin-1",
-        userRole: UserRole.ADMIN,
-        amount: "100",
-        now: new Date("2026-01-01T12:00:00.000Z"),
-      },
-      repository,
-    ),
-    "employee-only",
+  const result = await placeBid(
+    {
+      auctionId: "auction-1",
+      userId: "admin-1",
+      userRole: UserRole.ADMIN,
+      amount: "100",
+      now: new Date("2026-01-01T12:00:00.000Z"),
+    },
+    repository,
   );
+
+  assert.equal(result.bid.userId, "admin-1");
+  assert.equal(result.currentPrice, "100");
 });
 
 test("rejects invalid amounts", async () => {

@@ -1,13 +1,33 @@
 @import "tailwindcss";
 
 :root {
-  --background: #f8fafc;
-  --foreground: #111827;
+  --background: #f6f7fb;
+  --foreground: #0f172a;
+  --surface: #ffffff;
+  --surface-muted: #eef2f7;
+  --border: #d7dee8;
+  --muted-foreground: #64748b;
+  --primary: #2563eb;
+  --primary-foreground: #ffffff;
+  --accent: #7c3aed;
+  --success: #059669;
+  --warning: #d97706;
+  --danger: #dc2626;
 }
 
 .dark {
   --background: #020617;
-  --foreground: #e5e7eb;
+  --foreground: #f8fafc;
+  --surface: #0f172a;
+  --surface-muted: #172033;
+  --border: #334155;
+  --muted-foreground: #cbd5e1;
+  --primary: #60a5fa;
+  --primary-foreground: #082f49;
+  --accent: #a78bfa;
+  --success: #34d399;
+  --warning: #fbbf24;
+  --danger: #f87171;
   color-scheme: dark;
 }
 
@@ -17,41 +37,25 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
-.dark .bg-slate-50 {
-  background-color: #020617;
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-surface: var(--surface);
+  --color-surface-muted: var(--surface-muted);
+  --color-border: var(--border);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-accent: var(--accent);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-danger: var(--danger);
+  --shadow-soft: 0 16px 40px rgba(15, 23, 42, 0.08);
 }
 
-.dark .bg-white {
-  background-color: #0f172a;
-}
-
-.dark .bg-slate-100 {
-  background-color: #1e293b;
-}
-
-.dark .bg-slate-950 {
-  background-color: #e5e7eb;
-  color: #020617;
-}
-
-.dark .text-slate-950,
-.dark .text-slate-900,
-.dark .text-slate-800 {
-  color: #f8fafc;
-}
-
-.dark .text-slate-700,
-.dark .text-slate-600,
-.dark .text-slate-500 {
-  color: #cbd5e1;
-}
-
-.dark .border-slate-200,
-.dark .border-slate-300 {
-  border-color: #334155;
-}
-
-.dark .shadow-sm,
-.dark .shadow-lg {
-  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.24);
+input,
+select,
+textarea {
+  background: var(--surface);
+  color: var(--foreground);
 }

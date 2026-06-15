@@ -39,7 +39,6 @@ export async function POST(request: NextRequest) {
     name: user.name,
     email: user.email,
     role: user.role,
-    department: user.department,
   });
 
   const response = NextResponse.redirect(new URL(nextPath, request.url));

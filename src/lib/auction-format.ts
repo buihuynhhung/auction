@@ -18,20 +18,20 @@ export function formatDateTime(value: Date) {
 export function getAuctionTiming(startAt: Date, endAt: Date, now = new Date()) {
   if (now < startAt) {
     return {
-      label: "Chua bat dau",
+      label: "Chưa bắt đầu",
       remaining: durationLabel(startAt.getTime() - now.getTime()),
     };
   }
 
   if (now >= endAt) {
     return {
-      label: "Da ket thuc",
-      remaining: "Het gio",
+      label: "Đã kết thúc",
+      remaining: "Hết giờ",
     };
   }
 
   return {
-    label: "Dang dien ra",
+    label: "Đang diễn ra",
     remaining: durationLabel(endAt.getTime() - now.getTime()),
   };
 }
@@ -43,13 +43,12 @@ export function durationLabel(milliseconds: number) {
   const minutes = totalMinutes % 60;
 
   if (days > 0) {
-    return `${days} ngay ${hours} gio`;
+    return `${days} ngày ${hours} giờ`;
   }
 
   if (hours > 0) {
-    return `${hours} gio ${minutes} phut`;
+    return `${hours} giờ ${minutes} phút`;
   }
 
-  return `${minutes} phut`;
+  return `${minutes} phút`;
 }
-

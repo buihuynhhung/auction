@@ -1,10 +1,9 @@
 import type { Metadata } from "next";
-import { ThemeToggle } from "@/components/theme-toggle";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Internal Auction",
-  description: "Web app dau gia noi bo cho thiet bi cong ty",
+  title: "Đấu giá nội bộ",
+  description: "Web app đấu giá nội bộ cho thiết bị công ty",
 };
 
 export default function RootLayout({
@@ -31,7 +30,6 @@ export default function RootLayout({
       </head>
       <body>
         {children}
-        <ThemeToggle />
       </body>
     </html>
   );

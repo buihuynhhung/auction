@@ -13,6 +13,12 @@ enum UserRole {
 }
 
 enum ItemCategory {
+  ELECTRONICS
+  FASHION
+  HOME
+  COLLECTIBLE
+  VEHICLE
+  BOOK
   LAPTOP
   PRINTER
   SCANNER
@@ -51,6 +57,8 @@ model User {
   role         UserRole  @default(EMPLOYEE)
   department   String?
   isActive     Boolean   @default(true)
+  sellerPlanActive Boolean @default(false)
+  sellerPlanExpiresAt DateTime?
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 
@@ -68,6 +76,7 @@ model Item {
   serialNumber        String?
   model               String?
   description         String?
+  publicInfo          String?
   condition           ItemCondition @default(OTHER)
   includedAccessories String?
   knownIssues         String?

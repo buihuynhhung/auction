@@ -1,5 +1,14 @@
 import Link from "next/link";
+import { CalendarPlus } from "lucide-react";
 import { AuctionStatus } from "@prisma/client";
+import {
+  AlertBox,
+  Button,
+  Card,
+  PageHeader,
+  StatusBadge,
+  statusLabel,
+} from "@/components/ui";
 import { prisma } from "@/lib/prisma";
 import { formatCurrency, formatDateTime } from "@/lib/admin-format";
 
@@ -26,77 +35,93 @@ export default async function AdminAuctionsPage({
   ]);
 
   return (
-    <div className="mx-auto w-full max-w-6xl px-6 py-10">
-      <div className="flex flex-col gap-2 border-b border-slate-200 pb-6">
-        <p className="text-sm font-medium uppercase tracking-wide text-slate-500">
-          Admin / Auctions
-        </p>
-        <h2 className="text-3xl font-semibold text-slate-950">Phien dau gia</h2>
-        <p className="max-w-2xl text-sm leading-6 text-slate-600">
-          Tao phien dau gia, theo doi trang thai, va mo danh sach bid cua tung phien.
-        </p>
-        {params.saved ? (
-          <p className="text-sm text-emerald-700">Da luu thanh cong.</p>
-        ) : null}
-      </div>
+    <>
+      <PageHeader
+        eyebrow="Quản trị / Phiên đấu giá"
+        title="Phiên đấu giá"
+        description="Tạo phiên đấu giá, theo dõi trạng thái và mở danh sách đặt giá của từng phiên."
+      />
 
-      <div className="mt-6 grid gap-6 lg:grid-cols-[1fr_1.2fr]">
-        <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-          <h3 className="text-lg font-semibold text-slate-950">Tao phien moi</h3>
+      {params.saved ? <AlertBox tone="success">Đã lưu thành công.</AlertBox> : null}
+
+      <div className="grid gap-6 lg:grid-cols-[0.95fr_1.2fr]">
+        <Card className="p-5">
+          <div className="flex items-center gap-2">
+            <CalendarPlus className="h-5 w-5 text-primary" />
+            <h2 className="text-lg font-bold text-foreground">Tạo phiên mới</h2>
+          </div>
           <form action="/api/admin/auctions" method="post" className="mt-4 grid gap-4">
             <div className="grid gap-4 md:grid-cols-2">
-              <SelectField label="Thiet bi" name="itemId" options={items.map((item) => `${item.name}|${item.id}`)} />
-              <Field label="Gia khoi diem" name="startingPrice" />
-              <Field label="Buoc gia toi thieu" name="minIncrement" />
-              <Field label="Bat dau" name="startAt" type="datetime-local" />
-              <Field label="Ket thuc" name="endAt" type="datetime-local" />
-              <SelectField label="Trang thai" name="status" options={statuses} />
+              <SelectField
+                label="Thiết bị"
+                name="itemId"
+                options={items.map((item) => `${item.name}|${item.id}`)}
+              />
+              <Field label="Giá khởi điểm" name="startingPrice" />
+              <Field label="Bước giá tối thiểu" name="minIncrement" />
+              <Field label="Bắt đầu" name="startAt" type="datetime-local" />
+              <Field label="Kết thúc" name="endAt" type="datetime-local" />
+              <SelectField label="Trạng thái" name="status" options={statuses} labelFor={statusLabel} />
             </div>
-            <button
-              type="submit"
-              className="w-fit rounded-md bg-slate-950 px-4 py-2 text-sm font-medium text-white"
-            >
-              Tao phien
-            </button>
+            <Button type="submit" className="w-fit">
+              Tạo phiên
+            </Button>
           </form>
-        </section>
+        </Card>
 
-        <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-          <h3 className="text-lg font-semibold text-slate-950">Danh sach phien</h3>
+        <Card className="p-5">
+          <h2 className="text-lg font-bold text-foreground">Danh sách phiên</h2>
           <div className="mt-4 space-y-3">
             {auctions.map((auction) => {
               const highestBid = auction.bids[0];
               return (
-                <article key={auction.id} className="rounded-md border border-slate-200 p-4">
+                <article
+                  key={auction.id}
+                  className="rounded-md border border-border bg-surface-muted p-4"
+                >
                   <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <h4 className="font-medium text-slate-950">{auction.item.name}</h4>
-                      <p className="text-sm text-slate-600">
-                        {auction.status} - {formatDateTime(auction.startAt)}
+                    <div className="min-w-0">
+                      <h3 className="truncate font-semibold text-foreground">
+                        {auction.item.name}
+                      </h3>
+                      <p className="mt-1 text-sm text-muted-foreground">
+                        {formatDateTime(auction.startAt)}
                         {" -> "}
                         {formatDateTime(auction.endAt)}
                       </p>
                     </div>
-                    <Link href={`/admin/auctions/${auction.id}`} className="text-sm font-medium text-slate-900 underline">
-                      Chi tiet
-                    </Link>
+                    <StatusBadge status={auction.status} />
                   </div>
-                  <p className="mt-2 text-sm text-slate-600">
-                    Gia khoi diem: {formatCurrency(auction.startingPrice.toString())}
-                  </p>
-                  <p className="mt-1 text-sm text-slate-600">
-                    Bid cao nhat: {highestBid ? formatCurrency(highestBid.amount.toString()) : "Chua co"}
-                  </p>
-                  <p className="mt-1 text-sm text-slate-600">
-                    Winner: {auction.winner?.name ?? "Chua chot"}
-                  </p>
+                  <div className="mt-3 grid gap-1 text-sm text-muted-foreground">
+                    <p>
+                      Giá khởi điểm:{" "}
+                      <span className="font-semibold text-foreground">
+                        {formatCurrency(auction.startingPrice.toString())}
+                      </span>
+                    </p>
+                    <p>
+                      Lượt đặt giá cao nhất:{" "}
+                      <span className="font-semibold text-foreground">
+                        {highestBid
+                          ? formatCurrency(highestBid.amount.toString())
+                          : "Chưa có"}
+                      </span>
+                    </p>
+                    <p>Người thắng: {auction.winner?.name ?? "Chưa chốt"}</p>
+                  </div>
+                  <Link
+                    href={`/admin/auctions/${auction.id}`}
+                    className="mt-3 inline-flex text-sm font-semibold text-primary"
+                  >
+                    Chi tiết
+                  </Link>
                 </article>
               );
             })}
           </div>
-        </section>
+        </Card>
       </div>
-    </div>
+    </>
   );
 }
 
@@ -111,11 +136,13 @@ function Field({
 }) {
   return (
     <label className="block">
-      <span className="mb-1 block text-sm font-medium text-slate-700">{label}</span>
+      <span className="mb-1 block text-sm font-semibold text-foreground">
+        {label}
+      </span>
       <input
         name={name}
         type={type}
-        className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-slate-500"
+        className="w-full rounded-md border border-border px-3 py-2 text-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
       />
     </label>
   );
@@ -125,22 +152,26 @@ function SelectField({
   label,
   name,
   options,
+  labelFor = (value) => value,
 }: {
   label: string;
   name: string;
   options: string[];
+  labelFor?: (value: string) => string;
 }) {
   return (
     <label className="block">
-      <span className="mb-1 block text-sm font-medium text-slate-700">{label}</span>
+      <span className="mb-1 block text-sm font-semibold text-foreground">
+        {label}
+      </span>
       <select
         name={name}
-        className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-slate-500"
+        className="w-full rounded-md border border-border px-3 py-2 text-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
       >
         {options.map((option) => {
           const [labelText, value] = option.includes("|")
             ? option.split("|")
-            : [option, option];
+            : [labelFor(option), option];
           return (
             <option key={value} value={value}>
               {labelText}

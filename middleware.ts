@@ -32,7 +32,11 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  if (pathname.startsWith("/auctions") && !session) {
+  if (
+    (pathname.startsWith("/seller") ||
+      pathname.startsWith("/api/seller")) &&
+    !session
+  ) {
     const url = new URL("/login", request.url);
     url.searchParams.set("next", pathname);
     return NextResponse.redirect(url);
@@ -46,8 +50,9 @@ export const config = {
     "/admin",
     "/admin/:path*",
     "/api/admin/:path*",
-    "/auctions",
-    "/auctions/:path*",
+    "/seller",
+    "/seller/:path*",
+    "/api/seller/:path*",
     "/login",
   ],
 };

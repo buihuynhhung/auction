@@ -4,7 +4,6 @@ import { prisma } from "@/lib/prisma";
 export type BidErrorCode =
   | "auction-not-found"
   | "auction-closed"
-  | "employee-only"
   | "invalid-amount"
   | "too-low"
   | "conflict";
@@ -146,10 +145,6 @@ export async function placeBid(
   input: PlaceBidInput,
   repository: BidRepository = prisma,
 ): Promise<PlaceBidResult> {
-  if (input.userRole !== UserRole.EMPLOYEE) {
-    throw new BidError("employee-only", "Only employees can place bids.");
-  }
-
   const amount = parseBidAmount(input.amount);
   const now = input.now ?? new Date();
 

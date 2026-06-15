@@ -8,7 +8,6 @@ export type SessionUser = {
   name: string;
   email: string;
   role: "ADMIN" | "EMPLOYEE";
-  department?: string | null;
 };
 
 function getSecret() {
@@ -24,7 +23,6 @@ export async function createSessionToken(user: SessionUser) {
     name: user.name,
     email: user.email,
     role: user.role,
-    department: user.department ?? null,
   })
     .setProtectedHeader({ alg: "HS256" })
     .setSubject(user.id)
@@ -53,7 +51,6 @@ export async function verifySessionToken(token: string) {
       name: String(payload.name ?? ""),
       email: String(payload.email ?? ""),
       role,
-      department: payload.department ? String(payload.department) : null,
     } satisfies SessionUser;
   } catch {
     return null;

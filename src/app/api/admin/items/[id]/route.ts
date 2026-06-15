@@ -2,6 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { ItemCategory, ItemCondition, ItemStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireAdminSession } from "@/lib/admin-session";
+import {
+  ImageUploadError,
+  imageFilesFrom,
+  imageUrlsFrom,
+  saveImageFiles,
+  validateImageFiles,
+} from "@/lib/item-images";
 
 function firstString(formData: FormData, key: string) {
   return String(formData.get(key) ?? "").trim();
@@ -41,19 +48,35 @@ async function updateItem(request: NextRequest, id: string) {
   const assetCode = firstString(formData, "assetCode") || null;
   const serialNumber = firstString(formData, "serialNumber") || null;
   const model = firstString(formData, "model") || null;
-  const description = firstString(formData, "description") || null;
+  const detailText =
+    firstString(formData, "description") || firstString(formData, "publicInfo") || null;
   const includedAccessories = firstString(formData, "includedAccessories") || null;
   const knownIssues = firstString(formData, "knownIssues") || null;
-  const imageUrls = String(formData.get("imageUrls") ?? "")
-    .split("\n")
-    .map((line) => line.trim())
-    .filter(Boolean);
+  const imageUrls = imageUrlsFrom(formData);
+  const imageFiles = imageFilesFrom(formData);
 
   if (!name) {
     return NextResponse.redirect(
       new URL(`/admin/items/${id}?error=name`, request.url),
     );
   }
+
+  try {
+    validateImageFiles(imageFiles);
+  } catch (error) {
+    const code = error instanceof ImageUploadError ? error.code : "upload";
+    return NextResponse.redirect(new URL(`/admin/items/${id}?error=${code}`, request.url));
+  }
+
+  let uploadedUrls: string[] = [];
+  try {
+    uploadedUrls = await saveImageFiles(id, imageFiles);
+  } catch (error) {
+    const code = error instanceof ImageUploadError ? error.code : "upload";
+    return NextResponse.redirect(new URL(`/admin/items/${id}?error=${code}`, request.url));
+  }
+
+  const allImageUrls = [...imageUrls, ...uploadedUrls];
 
   await prisma.$transaction([
     prisma.item.update({
@@ -64,7 +87,8 @@ async function updateItem(request: NextRequest, id: string) {
         assetCode: assetCode || undefined,
         serialNumber,
         model,
-        description,
+        description: detailText,
+        publicInfo: detailText,
         condition,
         includedAccessories,
         knownIssues,
@@ -72,10 +96,10 @@ async function updateItem(request: NextRequest, id: string) {
       },
     }),
     prisma.itemImage.deleteMany({ where: { itemId: id } }),
-    ...(imageUrls.length
+    ...(allImageUrls.length
       ? [
           prisma.itemImage.createMany({
-            data: imageUrls.map((url, index) => ({
+            data: allImageUrls.map((url, index) => ({
               itemId: id,
               url,
               altText: `${name} image ${index + 1}`,

@@ -2,16 +2,16 @@ import { NextRequest, NextResponse } from "next/server";
 import { ItemCategory, ItemCondition, ItemStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireAdminSession } from "@/lib/admin-session";
+import {
+  ImageUploadError,
+  imageFilesFrom,
+  imageUrlsFrom,
+  saveImageFiles,
+  validateImageFiles,
+} from "@/lib/item-images";
 
 function firstString(formData: FormData, key: string) {
   return String(formData.get(key) ?? "").trim();
-}
-
-function imageUrlsFrom(formData: FormData) {
-  return String(formData.get("imageUrls") ?? "")
-    .split("\n")
-    .map((line) => line.trim())
-    .filter(Boolean);
 }
 
 function parseEnum<T extends object>(
@@ -48,37 +48,59 @@ export async function POST(request: NextRequest) {
   const assetCode = firstString(formData, "assetCode") || null;
   const serialNumber = firstString(formData, "serialNumber") || null;
   const model = firstString(formData, "model") || null;
-  const description = firstString(formData, "description") || null;
+  const detailText =
+    firstString(formData, "description") || firstString(formData, "publicInfo") || null;
   const includedAccessories = firstString(formData, "includedAccessories") || null;
   const knownIssues = firstString(formData, "knownIssues") || null;
   const imageUrls = imageUrlsFrom(formData);
+  const imageFiles = imageFilesFrom(formData);
 
   if (!name) {
     return NextResponse.redirect(new URL("/admin/items?error=name", request.url));
   }
 
-  await prisma.item.create({
+  try {
+    validateImageFiles(imageFiles);
+  } catch (error) {
+    const code = error instanceof ImageUploadError ? error.code : "upload";
+    return NextResponse.redirect(new URL(`/admin/items?error=${code}`, request.url));
+  }
+
+  const item = await prisma.item.create({
     data: {
       name,
       category,
       assetCode: assetCode || undefined,
       serialNumber,
       model,
-      description,
+      description: detailText,
+      publicInfo: detailText,
       condition,
       includedAccessories,
       knownIssues,
       status,
       createdById: session.id,
-      images: {
-        create: imageUrls.map((url, index) => ({
+    },
+  });
+
+  try {
+    const uploadedUrls = await saveImageFiles(item.id, imageFiles);
+    const allImageUrls = [...imageUrls, ...uploadedUrls];
+
+    if (allImageUrls.length) {
+      await prisma.itemImage.createMany({
+        data: allImageUrls.map((url, index) => ({
+          itemId: item.id,
           url,
           altText: `${name} image ${index + 1}`,
           sortOrder: index,
         })),
-      },
-    },
-  });
+      });
+    }
+  } catch (error) {
+    const code = error instanceof ImageUploadError ? error.code : "upload";
+    return NextResponse.redirect(new URL(`/admin/items?error=${code}`, request.url));
+  }
 
   return NextResponse.redirect(new URL("/admin/items?saved=1", request.url));
 }

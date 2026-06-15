@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Moon, Sun } from "lucide-react";
 
 type Theme = "light" | "dark";
 
@@ -20,15 +21,25 @@ export function ThemeToggle() {
   return (
     <button
       type="button"
-      aria-label="Toggle theme"
-      className="fixed bottom-5 right-5 z-50 rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-800 shadow-lg transition hover:border-slate-500"
+      aria-label="Đổi giao diện sáng tối"
+      className="inline-flex min-h-10 items-center gap-2 rounded-md border border-border bg-surface px-3 py-2 text-sm font-semibold text-foreground transition hover:bg-surface-muted"
       onClick={() => {
         const nextTheme = theme === "dark" ? "light" : "dark";
         applyTheme(nextTheme);
         setTheme(nextTheme);
       }}
     >
-      {theme === "dark" ? "Sang" : "Toi"}
+      {theme === "dark" ? (
+        <>
+          <Sun className="h-4 w-4" />
+          Sáng
+        </>
+      ) : (
+        <>
+          <Moon className="h-4 w-4" />
+          Tối
+        </>
+      )}
     </button>
   );
 }
