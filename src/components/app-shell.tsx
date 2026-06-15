@@ -1,6 +1,7 @@
 import Link from "next/link";
 import {
   Gavel,
+  Info,
   LayoutDashboard,
   LogIn,
   LogOut,
@@ -13,6 +14,8 @@ import { SessionUser } from "@/lib/session";
 import { Button } from "@/components/ui";
 import { ThemeToggle } from "@/components/theme-toggle";
 
+type AppSection = "home" | "about" | "admin" | "auctions" | "seller" | "plans";
+
 export function AppShell({
   children,
   session,
@@ -20,7 +23,7 @@ export function AppShell({
 }: {
   children: React.ReactNode;
   session: SessionUser | null;
-  section?: "home" | "admin" | "auctions" | "seller" | "plans";
+  section?: AppSection;
 }) {
   return (
     <main className="min-h-screen bg-background text-foreground">
@@ -39,6 +42,9 @@ export function AppShell({
           <nav className="flex flex-wrap items-center gap-2 text-sm">
             <NavLink href="/" active={section === "home"} icon={LayoutDashboard}>
               Trang chủ
+            </NavLink>
+            <NavLink href="/about" active={section === "about"} icon={Info}>
+              Giới thiệu
             </NavLink>
             <NavLink href="/auctions" active={section === "auctions"} icon={Store}>
               Đấu giá
