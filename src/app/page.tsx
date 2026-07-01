@@ -20,36 +20,42 @@ import { formatCurrency, getAuctionTiming } from "@/lib/auction-format";
 import { getCurrentSession } from "@/lib/current-session";
 import { getProductDetailText } from "@/lib/product-details";
 
+const publicAuctionStatuses = ["ACTIVE", "SCHEDULED", "CLOSED"] as const;
+
 export default async function DashboardPage() {
-  const [session, items, activeAuctions, stats] = await Promise.all([
-    getCurrentSession(),
-    prisma.item.findMany({
-      where: { status: { not: "ARCHIVED" } },
-      orderBy: { createdAt: "desc" },
-      include: {
-        images: { orderBy: { sortOrder: "asc" }, take: 1 },
-        auctions: {
+  const session = await getCurrentSession();
+  const isGuest = !session;
+
+  const [items, featuredAuctions, stats] = await Promise.all([
+    session
+      ? prisma.item.findMany({
+          where: { status: { not: "ARCHIVED" } },
           orderBy: { createdAt: "desc" },
-          take: 1,
           include: {
-            bids: {
-              orderBy: [{ amount: "desc" }, { createdAt: "asc" }],
+            images: { orderBy: { sortOrder: "asc" }, take: 1 },
+            auctions: {
+              orderBy: { createdAt: "desc" },
               take: 1,
-              include: { user: { select: { name: true } } },
+              include: {
+                bids: {
+                  orderBy: [{ amount: "desc" }, { createdAt: "asc" }],
+                  take: 1,
+                  include: { user: { select: { name: true } } },
+                },
+                winner: { select: { name: true } },
+                _count: { select: { bids: true } },
+              },
             },
-            winner: { select: { name: true } },
-            _count: { select: { bids: true } },
           },
-        },
-      },
-    }),
+        })
+      : Promise.resolve([]),
     prisma.auction.findMany({
       where: {
-        status: "ACTIVE",
+        status: isGuest ? { in: [...publicAuctionStatuses] } : "ACTIVE",
         item: { status: { not: "ARCHIVED" } },
       },
-      orderBy: { endAt: "asc" },
-      take: 3,
+      orderBy: isGuest ? [{ status: "asc" }, { endAt: "asc" }] : { endAt: "asc" },
+      take: isGuest ? 9 : 3,
       include: {
         item: {
           include: { images: { orderBy: { sortOrder: "asc" }, take: 1 } },
@@ -63,24 +69,47 @@ export default async function DashboardPage() {
         _count: { select: { bids: true } },
       },
     }),
-    Promise.all([
-      prisma.item.count({ where: { status: { not: "ARCHIVED" } } }),
-      prisma.auction.count({
-        where: {
-          status: "ACTIVE",
-          item: { status: { not: "ARCHIVED" } },
-        },
-      }),
-      prisma.bid.count(),
-    ]),
+    session
+      ? Promise.all([
+          prisma.item.count({ where: { status: { not: "ARCHIVED" } } }),
+          prisma.auction.count({
+            where: {
+              status: "ACTIVE",
+              item: { status: { not: "ARCHIVED" } },
+            },
+          }),
+          prisma.bid.count(),
+        ])
+      : Promise.all([
+          prisma.auction.count({
+            where: {
+              status: { in: [...publicAuctionStatuses] },
+              item: { status: { not: "ARCHIVED" } },
+            },
+          }),
+          prisma.auction.count({
+            where: {
+              status: "ACTIVE",
+              item: { status: { not: "ARCHIVED" } },
+            },
+          }),
+          prisma.bid.count({
+            where: {
+              auction: {
+                status: { in: [...publicAuctionStatuses] },
+                item: { status: { not: "ARCHIVED" } },
+              },
+            },
+          }),
+        ]),
   ]);
 
-  const [itemCount, activeAuctionCount, bidCount] = stats;
+  const [primaryCount, activeAuctionCount, bidCount] = stats;
 
   return (
     <AppShell session={session} section="home">
       <PageHeader
-        eyebrow="Đấu giá nội bộ"
+        eyebrow="Sàn đấu giá"
         title="Sản phẩm đang đấu giá"
         description="Khám phá sản phẩm đa dạng, xem giá hiện tại và tham gia đấu giá trong một màn hình gọn, rõ ràng."
         actions={
@@ -108,9 +137,13 @@ export default async function DashboardPage() {
 
       <section className="grid gap-4 md:grid-cols-3">
         <StatCard
-          label="Sản phẩm"
-          value={itemCount}
-          description="Đang có trong hệ thống"
+          label={isGuest ? "Phiên công khai" : "Sản phẩm"}
+          value={primaryCount}
+          description={
+            isGuest
+              ? "Đang mở, sắp diễn ra hoặc đã kết thúc"
+              : "Đang có trong hệ thống"
+          }
           icon={Boxes}
         />
         <StatCard
@@ -131,10 +164,12 @@ export default async function DashboardPage() {
         <div className="mb-4 flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
           <div>
             <h2 className="text-2xl font-bold tracking-tight text-foreground">
-              Đang đấu giá
+              {isGuest ? "Phiên đấu giá công khai" : "Đang đấu giá"}
             </h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              Các phiên đang mở được ưu tiên theo thời gian kết thúc gần nhất.
+              {isGuest
+                ? "Khách truy cập chỉ thấy các phiên đang mở, sắp diễn ra hoặc đã kết thúc."
+                : "Các phiên đang mở được ưu tiên theo thời gian kết thúc gần nhất."}
             </p>
           </div>
           <Button href="/auctions" variant="secondary">
@@ -142,9 +177,9 @@ export default async function DashboardPage() {
           </Button>
         </div>
 
-        {activeAuctions.length ? (
+        {featuredAuctions.length ? (
           <div className="grid gap-4 lg:grid-cols-3">
-            {activeAuctions.map((auction) => {
+            {featuredAuctions.map((auction) => {
               const highestBid = auction.bids[0];
               const currentPrice = highestBid?.amount ?? auction.startingPrice;
               const timing = getAuctionTiming(auction.startAt, auction.endAt);
@@ -192,88 +227,94 @@ export default async function DashboardPage() {
           </div>
         ) : (
           <EmptyState
-            title="Chưa có phiên đang mở"
-            description="Khi quản trị viên mở phiên đấu giá, thiết bị sẽ xuất hiện tại đây."
+            title={isGuest ? "Chưa có phiên công khai" : "Chưa có phiên đang mở"}
+            description={
+              isGuest
+                ? "Khi có phiên đang mở, sắp diễn ra hoặc đã kết thúc, sản phẩm sẽ xuất hiện tại đây."
+                : "Khi quản trị viên mở phiên đấu giá, sản phẩm sẽ xuất hiện tại đây."
+            }
           />
         )}
       </section>
 
-      <section>
-        <div className="mb-4 flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
-          <div>
-            <h2 className="text-2xl font-bold tracking-tight text-foreground">
-              Tất cả sản phẩm
-            </h2>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Danh sách sản phẩm trên sàn đấu giá, kèm phiên mới nhất nếu có.
-            </p>
+      {session ? (
+        <section>
+          <div className="mb-4 flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
+            <div>
+              <h2 className="text-2xl font-bold tracking-tight text-foreground">
+                Tất cả sản phẩm
+              </h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Danh sách sản phẩm trên sàn đấu giá, kèm phiên mới nhất nếu có.
+              </p>
+            </div>
           </div>
-        </div>
 
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {items.map((item) => {
-            const image = item.images[0];
-            const auction = item.auctions[0];
-            const highestBid = auction?.bids[0];
-            const currentPrice =
-              highestBid?.amount ?? auction?.startingPrice ?? null;
-            const timing = auction
-              ? getAuctionTiming(auction.startAt, auction.endAt)
-              : null;
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {items.map((item) => {
+              const image = item.images[0];
+              const auction = item.auctions[0];
+              const highestBid = auction?.bids[0];
+              const currentPrice =
+                highestBid?.amount ?? auction?.startingPrice ?? null;
+              const timing = auction
+                ? getAuctionTiming(auction.startAt, auction.endAt)
+                : null;
 
-            const card = (
-              <Card className="h-full overflow-hidden transition hover:border-primary/50">
-                <ProductImage src={image?.url} alt={image?.altText ?? item.name} />
-                <div className="p-4">
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <h3 className="font-bold text-foreground">{item.name}</h3>
-                      <p className="mt-1 text-sm text-muted-foreground">
-                        {categoryLabel(item.category)} - {conditionLabel(item.condition)}
-                      </p>
+              const card = (
+                <Card className="h-full overflow-hidden transition hover:border-primary/50">
+                  <ProductImage src={image?.url} alt={image?.altText ?? item.name} />
+                  <div className="p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <h3 className="font-bold text-foreground">{item.name}</h3>
+                        <p className="mt-1 text-sm text-muted-foreground">
+                          {categoryLabel(item.category)} - {conditionLabel(item.condition)}
+                        </p>
+                      </div>
+                      <StatusBadge status={auction?.status ?? item.status} />
                     </div>
-                    <StatusBadge status={auction?.status ?? item.status} />
-                  </div>
-                  {getProductDetailText(item) ? (
-                    <p className="mt-3 line-clamp-2 text-sm text-muted-foreground">
-                      {getProductDetailText(item)}
-                    </p>
-                  ) : null}
-                  <div className="mt-4">
-                    <AuctionMeta
-                      currentPrice={
-                        currentPrice ? formatCurrency(currentPrice) : "Chưa có"
-                      }
-                      bidCount={auction?._count.bids ?? 0}
-                      remaining={timing?.remaining ?? "Chưa có phiên"}
-                    />
-                    {auction ? (
-                      <AuctionParticipantLine
-                        status={auction.status}
-                        highestBidUserName={highestBid?.user.name}
-                        winnerName={auction.winner?.name}
+                    {getProductDetailText(item) ? (
+                      <p className="mt-3 line-clamp-2 text-sm text-muted-foreground">
+                        {getProductDetailText(item)}
+                      </p>
+                    ) : null}
+                    <div className="mt-4">
+                      <AuctionMeta
+                        currentPrice={
+                          currentPrice ? formatCurrency(currentPrice) : "Chưa có"
+                        }
+                        bidCount={auction?._count.bids ?? 0}
+                        remaining={timing?.remaining ?? "Chưa có phiên"}
                       />
+                      {auction ? (
+                        <AuctionParticipantLine
+                          status={auction.status}
+                          highestBidUserName={highestBid?.user.name}
+                          winnerName={auction.winner?.name}
+                        />
+                      ) : null}
+                    </div>
+                    {auction ? (
+                      <p className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-primary">
+                        Xem chi tiết <CtaArrow />
+                      </p>
                     ) : null}
                   </div>
-                  {auction ? (
-                    <p className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-primary">
-                      Xem chi tiết <CtaArrow />
-                    </p>
-                  ) : null}
-                </div>
-              </Card>
-            );
+                </Card>
+              );
 
-            return auction ? (
-              <Link key={item.id} href={`/auctions/${auction.id}`}>
-                {card}
-              </Link>
-            ) : (
-              <div key={item.id}>{card}</div>
-            );
-          })}
-        </div>
-      </section>
+              return auction ? (
+                <Link key={item.id} href={`/auctions/${auction.id}`}>
+                  {card}
+                </Link>
+              ) : (
+                <div key={item.id}>{card}</div>
+              );
+            })}
+          </div>
+        </section>
+      ) : null}
     </AppShell>
   );
 }

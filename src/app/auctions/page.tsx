@@ -39,49 +39,59 @@ const filters: Array<{
 ];
 
 export default async function AuctionsPage({ searchParams }: AuctionsPageProps) {
-  const params = (await searchParams) ?? {};
-  const activeFilter =
-    filters.find((filter) => filter.value === params.status) ?? filters[0];
-
-  const [auctions, session] = await Promise.all([
-    prisma.auction.findMany({
-      where: {
-        status: activeFilter.statuses
-          ? { in: activeFilter.statuses }
-          : { in: ["ACTIVE", "SCHEDULED", "CLOSED"] },
-        item: { status: { not: "ARCHIVED" } },
-      },
-      orderBy: [{ status: "asc" }, { endAt: "asc" }],
-      include: {
-        item: {
-          include: {
-            images: { orderBy: { sortOrder: "asc" }, take: 1 },
-          },
-        },
-        bids: {
-          orderBy: [{ amount: "desc" }, { createdAt: "asc" }],
-          take: 1,
-          include: { user: { select: { name: true } } },
-        },
-        winner: { select: { name: true } },
-        _count: {
-          select: { bids: true },
-        },
-      },
-    }),
+  const [rawParams, session] = await Promise.all([
+    searchParams,
     getCurrentSession(),
   ]);
+  const params = rawParams ?? {};
+  const isGuest = !session;
+  const visibleFilters = isGuest
+    ? filters.filter((filter) => filter.value === "active")
+    : filters;
+  const activeFilter = isGuest
+    ? filters.find((filter) => filter.value === "active") as (typeof filters)[number]
+    : filters.find((filter) => filter.value === params.status) ?? filters[0];
+
+  const auctions = await prisma.auction.findMany({
+    where: {
+      status: activeFilter.statuses
+        ? { in: activeFilter.statuses }
+        : { in: ["ACTIVE", "SCHEDULED", "CLOSED"] },
+      item: { status: { not: "ARCHIVED" } },
+    },
+    orderBy: [{ status: "asc" }, { endAt: "asc" }],
+    include: {
+      item: {
+        include: {
+          images: { orderBy: { sortOrder: "asc" }, take: 1 },
+        },
+      },
+      bids: {
+        orderBy: [{ amount: "desc" }, { createdAt: "asc" }],
+        take: 1,
+        include: { user: { select: { name: true } } },
+      },
+      winner: { select: { name: true } },
+      _count: {
+        select: { bids: true },
+      },
+    },
+  });
 
   return (
     <AppShell session={session} section="auctions">
       <PageHeader
         eyebrow="Đấu giá"
         title="Danh sách đấu giá"
-        description="Xem thiết bị đang đấu giá, giá hiện tại, thời gian còn lại và trạng thái phiên."
+        description={
+          isGuest
+            ? "Khách truy cập chỉ xem được các phiên đang mở. Đăng nhập để xem thêm phiên sắp diễn ra và đã kết thúc."
+            : "Xem sản phẩm đang đấu giá, giá hiện tại, thời gian còn lại và trạng thái phiên."
+        }
       />
 
       <section className="flex flex-wrap gap-2">
-        {filters.map((filter) => {
+        {visibleFilters.map((filter) => {
           const selected = filter.value === activeFilter.value;
           const href =
             filter.value === "all" ? "/auctions" : `/auctions?status=${filter.value}`;
@@ -172,8 +182,12 @@ export default async function AuctionsPage({ searchParams }: AuctionsPageProps) 
         </section>
       ) : (
         <EmptyState
-          title="Chưa có phiên phù hợp"
-          description="Thử đổi bộ lọc hoặc quay lại sau khi quản trị viên tạo thêm phiên đấu giá."
+          title={isGuest ? "Chưa có phiên đang mở" : "Chưa có phiên phù hợp"}
+          description={
+            isGuest
+              ? "Hiện chưa có phiên đấu giá đang mở. Vui lòng quay lại sau."
+              : "Thử đổi bộ lọc hoặc quay lại sau khi quản trị viên tạo thêm phiên đấu giá."
+          }
         />
       )}
     </AppShell>
